@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChapaRide - Ride Hailing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD6KCnb7Z3pQLVGLLn-FZYf1_xuRkraLpg&libraries=places,directions&callback=initAutocomplete" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body >   
+    <!-- style="background-color: #bd3838;" -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+          <a class="navbar-brand" href="#">
+            <img src="images/chaapalogo.png" style="width: 100px;" alt="">
+          </a>
+        </div>
+      </nav>
+    
+    <div class="container mt-5" style="width: 50%;">
+        
+
+        <!-- <img src="images/chaapalogo.png" style="width: 100px;" alt=""> -->
+        
+        <!-- Ride Request Form -->
+        <div class="card p-4 shadow-sm">
+            <p>hello! Welcome to chaparides. Where do you wanna go today?</p>
+            <form id="rideForm">
+                <div class="mb-3">
+                    <label for="pickup" class="form-label">Pickup Location</label>
+                    <input type="text" class="form-control" id="pickup" placeholder="Enter pickup location" required>
+                </div>
+                <div class="mb-3">
+                    <label for="destination" class="form-label">Destination</label>
+                    <input type="text" class="form-control" id="destination" placeholder="Enter destination" required>
+                </div>
+                <button type="submit" class="btn btn-danger w-100">Find Riders</button>
+            </form>
+        </div>
+        
+        <!-- Riders List -->
+        <div class="mt-4">
+            <h4>Available Riders</h4>
+            <ul class="list-group" id="ridersList">
+                <li class="list-group-item">No riders available</li>
+            </ul>
+        </div>
+
+        <!-- Map Display -->
+        <div id="map"></div>
+    </div>
+
+    <script>
+        let map, directionsService, directionsRenderer, selectedRider = null;
+        
+        function initAutocomplete() {
+            let pickupInput = document.getElementById('pickup');
+            let destinationInput = document.getElementById('destination');
+            new google.maps.places.Autocomplete(pickupInput);
+            new google.maps.places.Autocomplete(destinationInput);
+            
+            // Initialize map
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: -1.286389, lng: 36.817223 }, // Default to Nairobi
+                zoom: 12
+            });
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+        }
+        
+        document.getElementById('rideForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const pickup = document.getElementById('pickup').value;
+            const destination = document.getElementById('destination').value;
+            
+            if (pickup && destination) {
+                calculateRoute(pickup, destination);
+            }
+            
+            // Mock data for riders with phone numbers
+            const riders = [
+                { name: "John Doe", price: 10, phone: "123-456-7890" },
+                { name: "Jane Smith", price: 12, phone: "987-654-3210" },
+                { name: "Mike Johnson", price: 9, phone: "555-555-5555" }
+            ];
+            
+            const ridersList = document.getElementById('ridersList');
+            ridersList.innerHTML = '';
+            
+            riders.forEach((rider, index) => {
+                let listItem = document.createElement('li');
+                listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                listItem.innerHTML = `
+                    <span>${rider.name} - $${rider.price}</span>
+                    <div>
+                        <a href="tel:${rider.phone}" class="btn btn-sm btn-success">Call Rider</a>
+                        <button class="btn btn-sm btn-primary" id="payButton${index}" style="display: none;" onclick="payWithEthereum(${rider.price})">Pay with ETH</button>
+                        <button class="btn btn-sm btn-info" onclick="selectRider(${index}, ${rider.price})">Select</button>
+                    </div>
+                `;
+                ridersList.appendChild(listItem);
+            });
+        });
+        
+        function calculateRoute(pickup, destination) {
+            const request = {
+                origin: pickup,
+                destination: destination,
+                travelMode: 'DRIVING'
+            };
+            
+            directionsService.route(request, function(result, status) {
+                if (status === 'OK') {
+                    directionsRenderer.setDirections(result);
+                } else {
+                    alert('Could not display route. Error: ' + status);
+                }
+            });
+        }
+        
+        function selectRider(index, price) {
+            if (selectedRider !== null) {
+                document.getElementById(`payButton${selectedRider}`).style.display = 'none';
+            }
+            selectedRider = index;
+            document.getElementById(`payButton${index}`).style.display = 'inline-block';
+        }
+        
+        async function payWithEthereum(price) {
+            if (typeof window.ethereum !== 'undefined') {
+                const web3 = new Web3(window.ethereum);
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const accounts = await web3.eth.getAccounts();
+                    const transactionParameters = {
+                        to: '0xYourEthereumWalletAddress', // Replace with actual recipient address
+                        from: accounts[0],
+                        value: web3.utils.toWei(price.toString(), 'ether'),
+                        gas: '21000'
+                    };
+                    const txHash = await window.ethereum.request({
+                        method: 'eth_sendTransaction',
+                        params: [transactionParameters]
+                    });
+                    alert('Payment successful! Transaction Hash: ' + txHash);
+                } catch (error) {
+                    console.error(error);
+                    alert('Payment failed!');
+                }
+            } else {
+                alert('Please install MetaMask to make payments.');
+            }
+        }
+
+        window.onload = initAutocomplete;
+    </script>
+</body>
+</html>
